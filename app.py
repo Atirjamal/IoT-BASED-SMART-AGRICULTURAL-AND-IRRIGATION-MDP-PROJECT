@@ -37,11 +37,6 @@ div[data-testid="stAlert"] * {
     font-weight: bold !important;
     text-shadow: none !important;
 }
-div[data-testid="stWidgetLabel"] p {
-    font-size: 18px !important;
-    font-weight: bold !important;
-}
-/* Style for Weather Cards */
 .weather-card {
     background-color: rgba(255, 255, 255, 0.92);
     border-radius: 12px;
@@ -59,7 +54,7 @@ div[data-testid="stWidgetLabel"] p {
 '''
 st.markdown(page_bg_img, unsafe_allow_html=True)
 
-# 1. Generate Historical Data ONCE using Session State
+# 1. Generate Historical Data
 if 'sensor_data_24h' not in st.session_state:
     end_time = datetime.now()
     start_time = (end_time - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -79,7 +74,7 @@ if 'sensor_data_24h' not in st.session_state:
     df.set_index('Time', inplace=True)
     st.session_state.sensor_data_24h = df
 
-# 2. Generate 7-Day Weather Forecast Data
+# 2. Generate Weather Forecast Data
 if 'weather_forecast' not in st.session_state:
     today = datetime.now().date()
     forecast_dates = [today + timedelta(days=i) for i in range(7)]
@@ -109,7 +104,7 @@ today_rain_prob = weather_data['Rain Prob (%)'].iloc[0]
 st.sidebar.title("🎛️ Dashboard Menu")
 menu_selection = st.sidebar.radio(
     "Select an Option:",
-    ("Live Soil Status", "Historical Data", "Manual Override", "Weather Forecast")
+    ("Live Soil Status", "Historical Data", "Manual Override", "Weather Forecast", "🤖 AI Agri-Assistant")
 )
 
 st.sidebar.markdown("---")
@@ -118,7 +113,7 @@ st.sidebar.write("🟢 Cloud Connection: Active")
 st.sidebar.write("📡 ESP32 Gateway: Online")
 
 # ==========================================
-# PAGE 1: LIVE SOIL STATUS
+# PAGE 1-4: EXISTING MODULES
 # ==========================================
 if menu_selection == "Live Soil Status":
     st.title("💧 Current Soil & Environment Status")
@@ -151,9 +146,6 @@ if menu_selection == "Live Soil Status":
     with c2:
         st.line_chart(today_data[['Temperature (°C)', 'Humidity (%)']])
 
-# ==========================================
-# PAGE 2: HISTORICAL DATA
-# ==========================================
 elif menu_selection == "Historical Data":
     st.title("📅 Historical Data Explorer")
     st.write("Select a previous date to view hourly aggregated sensor data.")
@@ -169,21 +161,12 @@ elif menu_selection == "Historical Data":
 
     c1, c2 = st.columns(2)
     with c1:
-        st.write(f"**Hourly Soil Moisture for {selected_date}**")
         st.line_chart(hourly_data['Soil Moisture (%)'], color="#2ecc71")
     with c2:
-        st.write(f"**Hourly Environment for {selected_date}**")
         st.line_chart(hourly_data[['Temperature (°C)', 'Humidity (%)']])
 
-# ==========================================
-# PAGE 3: MANUAL OVERRIDE
-# ==========================================
 elif menu_selection == "Manual Override":
     st.title("⚙️ Manual Hardware Control")
-    st.write("Use this panel to override the automated IoT logic and force the water pump on or off.")
-    
-    st.info("Currently viewing: ESP32 Relay Controls")
-    
     manual_override = st.toggle("🔓 Enable Manual Override")
     
     if manual_override:
@@ -195,14 +178,8 @@ elif menu_selection == "Manual Override":
     else:
         st.write("🔒 Override disabled. System is currently running its standard automated algorithms.")
 
-# ==========================================
-# PAGE 4: WEATHER FORECAST
-# ==========================================
 elif menu_selection == "Weather Forecast":
     st.title("🌤️ 7-Day Weather Forecast Outlook")
-    st.write("Integrating predicted rainfall data to optimize irrigation schedules and conserve water.")
-    
-    # Display 7 Daily Cards
     cols = st.columns(7)
     for i, col in enumerate(cols):
         row = weather_data.iloc[i]
@@ -213,12 +190,48 @@ elif menu_selection == "Weather Forecast":
                 <h4>{day_str}</h4>
                 <p><strong>{row['Condition']}</strong></p>
                 <p>🌡️ {row['Max Temp (°C)']}° / {row['Min Temp (°C)']}°</p>
-                <p>💧 Hum: {row['Humidity (%)']}%</p>
                 <p>🌧️ Rain: {row['Rain Prob (%)']}%</p>
             </div>
             """, unsafe_allow_html=True)
+    st.line_chart(weather_data.set_index('Date')[['Max Temp (°C)', 'Rain Prob (%)']])
 
-    st.markdown("---")
-    st.subheader("Expected Temperature vs. Rain Probability Trends")
-    chart_weather = weather_data.set_index('Date')
-    st.line_chart(chart_weather[['Max Temp (°C)', 'Rain Prob (%)']])
+# ==========================================
+# PAGE 5: AI AGRI-ASSISTANT (NEW)
+# ==========================================
+elif menu_selection == "🤖 AI Agri-Assistant":
+    st.title("🤖 Smart Agri-Assistant")
+    st.write("Ask me about system setup, crop recommendations, or government agricultural schemes.")
+
+    # Initialize chat history memory
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "assistant", "content": "Hello! I am your AI Agri-Assistant. How can I help you optimize your farm today?"}
+        ]
+
+    # Display previous chat messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # Accept user input
+    if prompt := st.chat_input("E.g., What government schemes are available for drip irrigation?"):
+        
+        # 1. Display user message
+        st.chat_message("user").markdown(prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        # 2. Mock AI Logic (To be replaced with real LLM API in Review III)
+        prompt_lower = prompt.lower()
+        if "scheme" in prompt_lower or "government" in prompt_lower or "subsidy" in prompt_lower:
+            response = "**Government Schemes for Smart Irrigation:**\n1. **PMKSY (Pradhan Mantri Krishi Sinchayee Yojana):** Offers significant subsidies (up to 55% for small/marginal farmers) for installing drip and sprinkler irrigation systems.\n2. **NABARD Loans:** Provides low-interest credit for agricultural infrastructure, including solar pumps and IoT setups.\n3. **State-Level Subsidies:** Many state horticulture departments offer up to 70% subsidies for polyhouse and sensor-based smart farming setups."
+        elif "crop" in prompt_lower or "plant" in prompt_lower:
+            response = f"**Crop Recommendations based on Live Data:**\nYour current soil moisture is at **{latest_moisture}%** and temperature is **{latest_temp}°C**.\n- **Ideal Crops:** These warm conditions are well-suited for crops like Cotton, Maize, or Sorghum.\n- **Advice:** If you plan to plant water-intensive crops like Rice, I recommend ensuring the automated pump threshold is raised to maintain a minimum of 60% moisture."
+        elif "setup" in prompt_lower or "irrigation" in prompt_lower:
+            response = "**System Setup Guide:**\nTo optimize your smart irrigation:\n1. Ensure the ESP32 is placed in a waterproof enclosure.\n2. Bury the soil moisture sensors at root depth (approx. 4-6 inches depending on the crop).\n3. Keep the DHT11 temperature sensor shaded from direct sunlight for accurate ambient air readings."
+        else:
+            response = "That is a great question. As a prototype AI for Review II, I am currently trained on specific queries regarding **schemes**, **crops**, and **setup**. In our next project phase, I will be connected to a live LLM to answer any agricultural question you have!"
+
+        # 3. Display assistant response
+        with st.chat_message("assistant"):
+            st.markdown(response)
+        st.session_state.messages.append({"role": "assistant", "content": response})
