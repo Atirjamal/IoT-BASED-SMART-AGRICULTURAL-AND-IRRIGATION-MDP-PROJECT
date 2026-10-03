@@ -98,90 +98,127 @@ if 'weather_forecast' not in st.session_state:
 data = st.session_state.sensor_data_24h
 weather_data = st.session_state.weather_forecast
 
-# Dashboard Title
-st.title("🌱 Smart Agriculture IoT Dashboard")
-
-# 3. Live Sensor Metrics
-m_col1, m_col2, m_col3 = st.columns(3)
 latest_moisture = data['Soil Moisture (%)'].iloc[-1]
 latest_temp = data['Temperature (°C)'].iloc[-1]
 latest_humidity = data['Humidity (%)'].iloc[-1]
-
-with m_col1:
-    st.metric(label="💧 Soil Moisture (Live)", value=f"{latest_moisture}%")
-with m_col2:
-    st.metric(label="🌡️ Temperature (Live)", value=f"{latest_temp} °C")
-with m_col3:
-    st.metric(label="☁️ Air Humidity (Live)", value=f"{latest_humidity}%")
-
-# 4. System Control & Smart Logic
-st.subheader("⚙️ System Control & Status")
-ctrl_col, status_col = st.columns([1, 2])
-
 today_rain_prob = weather_data['Rain Prob (%)'].iloc[0]
 
-with ctrl_col:
-    manual_override = st.toggle("Enable Manual Override")
-    if manual_override:
-        pump_switch = st.toggle("Turn Pump ON/OFF")
-    else:
-        st.write("System running in **AUTO** mode.")
+# ==========================================
+# SIDEBAR NAVIGATION
+# ==========================================
+st.sidebar.title("🎛️ Dashboard Menu")
+menu_selection = st.sidebar.radio(
+    "Select an Option:",
+    ("Live Soil Status", "Historical Data", "Manual Override", "Weather Forecast")
+)
 
-with status_col:
+st.sidebar.markdown("---")
+st.sidebar.write("**System Info**")
+st.sidebar.write("🟢 Cloud Connection: Active")
+st.sidebar.write("📡 ESP32 Gateway: Online")
+
+# ==========================================
+# PAGE 1: LIVE SOIL STATUS
+# ==========================================
+if menu_selection == "Live Soil Status":
+    st.title("💧 Current Soil & Environment Status")
+    
+    m_col1, m_col2, m_col3 = st.columns(3)
+    with m_col1:
+        st.metric(label="💧 Soil Moisture", value=f"{latest_moisture}%")
+    with m_col2:
+        st.metric(label="🌡️ Temperature", value=f"{latest_temp} °C")
+    with m_col3:
+        st.metric(label="☁️ Air Humidity", value=f"{latest_humidity}%")
+
+    st.subheader("Automated Pump Logic Status")
+    if today_rain_prob > 75 and latest_moisture < 40:
+        st.info(f"🌧️ Rain expected today ({today_rain_prob}% chance). Auto-irrigation suspended to conserve water.")
+    elif latest_moisture < 40 and latest_temp > 30:
+        st.error("🚨 Pump Status: ON (Soil dry & air hot. High volume needed.)")
+    elif latest_moisture < 40:
+        st.warning("⚠️ Pump Status: ON (Standard watering mode active.)")
+    else:
+        st.success("✅ Pump Status: OFF (Optimal conditions met.)")
+
+    st.subheader("Today's Live Trends")
+    today_date = datetime.now().date()
+    today_data = data[data.index.date == today_date]
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.line_chart(today_data['Soil Moisture (%)'], color="#2ecc71")
+    with c2:
+        st.line_chart(today_data[['Temperature (°C)', 'Humidity (%)']])
+
+# ==========================================
+# PAGE 2: HISTORICAL DATA
+# ==========================================
+elif menu_selection == "Historical Data":
+    st.title("📅 Historical Data Explorer")
+    st.write("Select a previous date to view hourly aggregated sensor data.")
+    
+    available_dates = data.index.date
+    min_date = available_dates.min()
+    max_date = available_dates.max()
+
+    selected_date = st.date_input("Choose a Date:", max_date, min_value=min_date, max_value=max_date)
+
+    filtered_data = data[data.index.date == selected_date]
+    hourly_data = filtered_data.resample('1h').mean().dropna()
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.write(f"**Hourly Soil Moisture for {selected_date}**")
+        st.line_chart(hourly_data['Soil Moisture (%)'], color="#2ecc71")
+    with c2:
+        st.write(f"**Hourly Environment for {selected_date}**")
+        st.line_chart(hourly_data[['Temperature (°C)', 'Humidity (%)']])
+
+# ==========================================
+# PAGE 3: MANUAL OVERRIDE
+# ==========================================
+elif menu_selection == "Manual Override":
+    st.title("⚙️ Manual Hardware Control")
+    st.write("Use this panel to override the automated IoT logic and force the water pump on or off.")
+    
+    st.info("Currently viewing: ESP32 Relay Controls")
+    
+    manual_override = st.toggle("🔓 Enable Manual Override")
+    
     if manual_override:
+        pump_switch = st.toggle("⚡ Turn Pump ON/OFF")
         if pump_switch:
-            st.warning("⚠️️ Pump Status: ON (MANUAL OVERRIDE ACTIVE)")
+            st.warning("⚠️ COMMAND SENT: Pump is manually forced ON.")
         else:
-            st.info("ℹ️ Pump Status: OFF (MANUAL OVERRIDE ACTIVE)")
+            st.success("✅ COMMAND SENT: Pump is manually forced OFF.")
     else:
-        if today_rain_prob > 75 and latest_moisture < 40:
-            st.info(f"🌧️ Rain expected today ({today_rain_prob}% chance). Auto-irrigation suspended to conserve water.")
-        elif latest_moisture < 40 and latest_temp > 30:
-            st.error("🚨 Pump Status: ON (AUTO: Soil dry & air hot. High volume.)")
-        elif latest_moisture < 40:
-            st.warning("⚠️ Pump Status: ON (AUTO: Standard watering mode.)")
-        else:
-            st.success("✅ Pump Status: OFF (AUTO: Optimal conditions met.)")
+        st.write("🔒 Override disabled. System is currently running its standard automated algorithms.")
 
-# 5. Weather Forecast Section (Next 1 Week)
-st.subheader("🌤️ 7-Day Weather Forecast Outlook")
+# ==========================================
+# PAGE 4: WEATHER FORECAST
+# ==========================================
+elif menu_selection == "Weather Forecast":
+    st.title("🌤️ 7-Day Weather Forecast Outlook")
+    st.write("Integrating predicted rainfall data to optimize irrigation schedules and conserve water.")
+    
+    # Display 7 Daily Cards
+    cols = st.columns(7)
+    for i, col in enumerate(cols):
+        row = weather_data.iloc[i]
+        day_str = "Today" if i == 0 else row['Date'].strftime('%a, %b %d')
+        with col:
+            st.markdown(f"""
+            <div class="weather-card">
+                <h4>{day_str}</h4>
+                <p><strong>{row['Condition']}</strong></p>
+                <p>🌡️ {row['Max Temp (°C)']}° / {row['Min Temp (°C)']}°</p>
+                <p>💧 Hum: {row['Humidity (%)']}%</p>
+                <p>🌧️ Rain: {row['Rain Prob (%)']}%</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-# Display 7 Daily Cards
-cols = st.columns(7)
-for i, col in enumerate(cols):
-    row = weather_data.iloc[i]
-    day_str = "Today" if i == 0 else row['Date'].strftime('%a, %b %d')
-    with col:
-        st.markdown(f"""
-        <div class="weather-card">
-            <h4>{day_str}</h4>
-            <p><strong>{row['Condition']}</strong></p>
-            <p>🌡️ {row['Max Temp (°C)']}° / {row['Min Temp (°C)']}°C</p>
-            <p>💧 Hum: {row['Humidity (%)']}%</p>
-            <p>🌧️ Rain: {row['Rain Prob (%)']}%</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-# 7-Day Temperature & Rain Trend Chart
-st.write("**7-Day Expected Temperature and Rain Probability Trends**")
-chart_weather = weather_data.set_index('Date')
-st.line_chart(chart_weather[['Max Temp (°C)', 'Rain Prob (%)']])
-
-# 6. Historical Data Explorer
-st.subheader("📅 Historical Data Explorer")
-available_dates = data.index.date
-min_date = available_dates.min()
-max_date = available_dates.max()
-
-selected_date = st.date_input("Select a date to view hourly records", max_date, min_value=min_date, max_value=max_date)
-
-filtered_data = data[data.index.date == selected_date]
-hourly_data = filtered_data.resample('1h').mean().dropna()
-
-c1, c2 = st.columns(2)
-with c1:
-    st.write(f"Hourly Soil Moisture for {selected_date}")
-    st.line_chart(hourly_data['Soil Moisture (%)'], color="#2ecc71")
-with c2:
-    st.write(f"Hourly Environment for {selected_date}")
-    st.line_chart(hourly_data[['Temperature (°C)', 'Humidity (%)']])
+    st.markdown("---")
+    st.subheader("Expected Temperature vs. Rain Probability Trends")
+    chart_weather = weather_data.set_index('Date')
+    st.line_chart(chart_weather[['Max Temp (°C)', 'Rain Prob (%)']])
