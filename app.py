@@ -196,42 +196,46 @@ elif menu_selection == "Weather Forecast":
     st.line_chart(weather_data.set_index('Date')[['Max Temp (°C)', 'Rain Prob (%)']])
 
 # ==========================================
-# PAGE 5: AI AGRI-ASSISTANT (NEW)
+# PAGE 5: LIVE AI AGRI-ASSISTANT (GEMINI)
 # ==========================================
 elif menu_selection == "🤖 AI Agri-Assistant":
-    st.title("🤖 Smart Agri-Assistant")
-    st.write("Ask me about system setup, crop recommendations, or government agricultural schemes.")
+    st.title("🤖 Smart Agri-Assistant (Live AI)")
+    st.write("I am powered by a real Large Language Model. Ask me anything!")
 
-    # Initialize chat history memory
+    # Securely load the API key from Streamlit Secrets
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        model = genai.GenerativeModel('gemini-1.5-flash')
+    except Exception as e:
+        st.error("🚨 API Key not found. Please add GEMINI_API_KEY to your Streamlit Secrets.")
+        st.stop()
+
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": "Hello! I am your AI Agri-Assistant. How can I help you optimize your farm today?"}
+            {"role": "assistant", "content": "Hello! I am your live AI Agri-Assistant. How can I help you optimize your farm today?"}
         ]
 
-    # Display previous chat messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Accept user input
-    if prompt := st.chat_input("E.g., What government schemes are available for drip irrigation?"):
-        
-        # 1. Display user message
+    if prompt := st.chat_input("Ask about crops, weather, or government schemes..."):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # 2. Mock AI Logic (To be replaced with real LLM API in Review III)
-        prompt_lower = prompt.lower()
-        if "scheme" in prompt_lower or "government" in prompt_lower or "subsidy" in prompt_lower:
-            response = "**Government Schemes for Smart Irrigation:**\n1. **PMKSY (Pradhan Mantri Krishi Sinchayee Yojana):** Offers significant subsidies (up to 55% for small/marginal farmers) for installing drip and sprinkler irrigation systems.\n2. **NABARD Loans:** Provides low-interest credit for agricultural infrastructure, including solar pumps and IoT setups.\n3. **State-Level Subsidies:** Many state horticulture departments offer up to 70% subsidies for polyhouse and sensor-based smart farming setups."
-        elif "crop" in prompt_lower or "plant" in prompt_lower:
-            response = f"**Crop Recommendations based on Live Data:**\nYour current soil moisture is at **{latest_moisture}%** and temperature is **{latest_temp}°C**.\n- **Ideal Crops:** These warm conditions are well-suited for crops like Cotton, Maize, or Sorghum.\n- **Advice:** If you plan to plant water-intensive crops like Rice, I recommend ensuring the automated pump threshold is raised to maintain a minimum of 60% moisture."
-        elif "setup" in prompt_lower or "irrigation" in prompt_lower:
-            response = "**System Setup Guide:**\nTo optimize your smart irrigation:\n1. Ensure the ESP32 is placed in a waterproof enclosure.\n2. Bury the soil moisture sensors at root depth (approx. 4-6 inches depending on the crop).\n3. Keep the DHT11 temperature sensor shaded from direct sunlight for accurate ambient air readings."
-        else:
-            response = "That is a great question. As a prototype AI for Review II, I am currently trained on specific queries regarding **schemes**, **crops**, and **setup**. In our next project phase, I will be connected to a live LLM to answer any agricultural question you have!"
+        # Inject real-time dashboard data into the AI's brain behind the scenes
+        context_prompt = f"""
+        You are an expert agricultural AI assistant helping a farmer. 
+        The current farm data is: Soil Moisture = {latest_moisture}%, Temperature = {latest_temp}°C, Rain Probability = {today_rain_prob}%.
+        The farmer is asking: {prompt}
+        Answer concisely and professionally, taking the current farm data into account if relevant.
+        """
 
-        # 3. Display assistant response
         with st.chat_message("assistant"):
-            st.markdown(response)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+            try:
+                response = model.generate_content(context_prompt)
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+            except Exception as e:
+                st.error("Failed to connect to AI. Please try again.")
