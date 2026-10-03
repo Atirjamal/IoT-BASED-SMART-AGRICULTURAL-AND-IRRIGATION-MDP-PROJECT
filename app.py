@@ -202,13 +202,16 @@ elif menu_selection == "🤖 AI Agri-Assistant":
     st.title("🤖 Smart Agri-Assistant (Live AI)")
     st.write("I am powered by a real Large Language Model. Ask me anything!")
 
-    # Securely load the API key from Streamlit Secrets
+    # Securely load the API key from Streamlit Secrets and strip hidden spaces
     try:
         import google.generativeai as genai
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        api_key = st.secrets["GEMINI_API_KEY"].strip()
+        genai.configure(api_key=api_key)
+        
+        # Upgraded to a newer model version
+        model = genai.GenerativeModel('gemini-2.5-flash')
     except Exception as e:
-        st.error("🚨 API Key not found. Please add GEMINI_API_KEY to your Streamlit Secrets.")
+        st.error(f"🚨 Initialization Error: {e}")
         st.stop()
 
     if "messages" not in st.session_state:
@@ -238,4 +241,5 @@ elif menu_selection == "🤖 AI Agri-Assistant":
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception as e:
-                st.error("Failed to connect to AI. Please try again.")
+                # Exposing the exact error so we know exactly what is failing!
+                st.error(f"Failed to connect to AI. Exact Error: {e}")
