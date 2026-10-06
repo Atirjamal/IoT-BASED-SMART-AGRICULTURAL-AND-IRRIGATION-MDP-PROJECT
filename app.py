@@ -224,14 +224,22 @@ elif menu_selection == "🤖 AI Agri-Assistant":
         st.error(f"🚨 Initialization Error: {e}")
         st.stop()
 
-for message in st.session_state.messages:
+if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "assistant", "content": "Hello! I am your live AI Agri-Assistant. How can I help you optimize your farm today?"}
+        ]
+
+    # Display previous chat messages
+    for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-    # ALL response logic MUST stay inside this indented 'if prompt' block
+
+    # Handle user input and AI response
     if prompt := st.chat_input("Ask about crops, weather, or government schemes..."):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
+        # Inject real-time dashboard data into the AI's brain
         context_prompt = f"""
         You are an expert agricultural AI assistant helping a farmer. 
         The current farm data is: Soil Moisture = {latest_moisture}%, Temperature = {latest_temp}°C, Rain Probability = {today_rain_prob}%.
