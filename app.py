@@ -99,19 +99,61 @@ latest_humidity = data['Humidity (%)'].iloc[-1]
 today_rain_prob = weather_data['Rain Prob (%)'].iloc[0]
 
 # ==========================================
-# SIDEBAR NAVIGATION
+# SIDEBAR NAVIGATION & PERSISTENT AI CHAT
 # ==========================================
 st.sidebar.title("🎛️ Dashboard Menu")
 menu_selection = st.sidebar.radio(
     "Select an Option:",
-    ("Live Soil Status", "Historical Data", "Manual Override", "Weather Forecast", "🤖 AI Agri-Assistant")
+    ("Live Soil Status", "Historical Data", "Manual Override", "Weather Forecast")
 )
+
+st.sidebar.markdown("---")
+
+# Persistent AI Agri-Assistant Widget (Available across all pages)
+with st.sidebar.expander("🤖 Live AI Agri-Assistant", expanded=False):
+    st.write("Ask me anything about your farm!")
+
+    try:
+        import google.generativeai as genai
+        api_key = st.secrets["GEMINI_API_KEY"].strip()
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-3.8-flash')
+    except Exception as e:
+        st.error(f"🚨 Init Error: {e}")
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "assistant", "content": "Hello! How can I help optimize your farm today?"}
+        ]
+
+    # Compact scrollable chat window
+    chat_container = st.container(height=280)
+    with chat_container:
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+    if prompt := st.chat_input("Ask about crops or weather..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        context_prompt = f"""
+        You are an expert agricultural AI assistant helping a farmer. 
+        Current farm data: Soil Moisture = {latest_moisture}%, Temp = {latest_temp}°C, Rain Prob = {today_rain_prob}%.
+        Farmer asks: {prompt}
+        Answer concisely.
+        """
+        try:
+            response = model.generate_content(context_prompt)
+            ai_reply = response.text
+            st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error: {e}")
 
 st.sidebar.markdown("---")
 st.sidebar.write("**System Info**")
 st.sidebar.write("🟢 Cloud Connection: Active")
 st.sidebar.write("📡 ESP32 Gateway: Online")
-
 # ==========================================
 # PAGE 1: LIVE SOIL STATUS
 # ==========================================
@@ -204,59 +246,3 @@ elif menu_selection == "Weather Forecast":
             """, unsafe_allow_html=True)
     st.line_chart(weather_data.set_index('Date')[['Max Temp (°C)', 'Rain Prob (%)']])
 
-# ==========================================
-# PAGE 5: AI AGRI-ASSISTANT (GEMINI)
-# ==========================================
-elif menu_selection == "🤖 AI Agri-Assistant":
-    st.title("🤖 Smart Agri-Assistant (Live AI)")
-    st.write("I am powered by a real Large Language Model. Ask me anything!")
-
-    # Securely load the API key
-    try:
-        import google.generativeai as genai
-        api_key = st.secrets["GEMINI_API_KEY"].strip()
-        genai.configure(api_key=api_key)
-        
-        # Using gemini-3.8-flash on the free tier
-        model = genai.GenerativeModel('gemini-3.8-flash')
-    except Exception as e:
-        st.error(f"🚨 Initialization Error: {e}")
-        st.stop()
-
-    # Initialize chat history memory
-    if "messages" not in st.session_state:
-        st.session_state.messages = [
-            {"role": "assistant", "content": "Hello! I am your live AI Agri-Assistant. How can I help you optimize your farm today?"}
-        ]
-
-    # Display previous chat messages
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    # Handle user input and AI response
-    if prompt := st.chat_input("Ask about crops, weather, or government schemes..."):
-        st.chat_message("user").markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
-
-        # Inject real-time dashboard data into the AI's brain
-        context_prompt = f"""
-        You are an expert agricultural AI assistant helping a farmer. 
-        The current farm data is: Soil Moisture = {latest_moisture}%, Temperature = {latest_temp}°C, Rain Probability = {today_rain_prob}%.
-        The farmer is asking: {prompt}
-        Answer concisely and professionally, taking the current farm data into account if relevant.
-        """
-
-        with st.chat_message("assistant"):
-            try:
-                response = model.generate_content(context_prompt, stream=True)
-                
-                def stream_data():
-                    for chunk in response:
-                        if chunk.text:
-                            yield chunk.text
-                            
-                full_response = st.write_stream(stream_data())
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-            except Exception as e:
-                st.error(f"Failed to connect to AI. Exact Error: {e}")
