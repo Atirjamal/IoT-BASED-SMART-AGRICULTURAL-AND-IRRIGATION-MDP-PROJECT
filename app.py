@@ -235,11 +235,22 @@ elif menu_selection == "🤖 AI Agri-Assistant":
         Answer concisely and professionally, taking the current farm data into account if relevant.
         """
 
-        with st.chat_message("assistant"):
+with st.chat_message("assistant"):
             try:
-                response = model.generate_content(context_prompt)
-                st.markdown(response.text)
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
+                # Ask Gemini to stream the response back in small chunks
+                response = model.generate_content(context_prompt, stream=True)
+                
+                # Helper function to yield text chunks as they arrive
+                def stream_data():
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
+                            
+                # st.write_stream automatically creates the typing animation
+                full_response = st.write_stream(stream_data())
+                
+                # Save the final text to chat memory
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                
             except Exception as e:
-                # Exposing the exact error so we know exactly what is failing!
                 st.error(f"Failed to connect to AI. Exact Error: {e}")
