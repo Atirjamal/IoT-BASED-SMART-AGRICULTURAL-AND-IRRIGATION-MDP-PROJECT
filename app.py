@@ -113,7 +113,7 @@ st.sidebar.write("🟢 Cloud Connection: Active")
 st.sidebar.write("📡 ESP32 Gateway: Online")
 
 # ==========================================
-# PAGE 1-4: EXISTING MODULES
+# PAGE 1: LIVE SOIL STATUS
 # ==========================================
 if menu_selection == "Live Soil Status":
     st.title("💧 Current Soil & Environment Status")
@@ -146,6 +146,9 @@ if menu_selection == "Live Soil Status":
     with c2:
         st.line_chart(today_data[['Temperature (°C)', 'Humidity (%)']])
 
+# ==========================================
+# PAGE 2: HISTORICAL DATA
+# ==========================================
 elif menu_selection == "Historical Data":
     st.title("📅 Historical Data Explorer")
     st.write("Select a previous date to view hourly aggregated sensor data.")
@@ -165,6 +168,9 @@ elif menu_selection == "Historical Data":
     with c2:
         st.line_chart(hourly_data[['Temperature (°C)', 'Humidity (%)']])
 
+# ==========================================
+# PAGE 3: MANUAL OVERRIDE
+# ==========================================
 elif menu_selection == "Manual Override":
     st.title("⚙️ Manual Hardware Control")
     manual_override = st.toggle("🔓 Enable Manual Override")
@@ -178,8 +184,11 @@ elif menu_selection == "Manual Override":
     else:
         st.write("🔒 Override disabled. System is currently running its standard automated algorithms.")
 
+# ==========================================
+# PAGE 4: WEATHER Forecast
+# ==========================================
 elif menu_selection == "Weather Forecast":
-    st.title("🌤️ 7-Day Weather Forecast Outlook")
+    st.title("🌤 7-Day Weather Forecast Outlook")
     cols = st.columns(7)
     for i, col in enumerate(cols):
         row = weather_data.iloc[i]
@@ -195,36 +204,33 @@ elif menu_selection == "Weather Forecast":
             """, unsafe_allow_html=True)
     st.line_chart(weather_data.set_index('Date')[['Max Temp (°C)', 'Rain Prob (%)']])
 
-
 # ==========================================
-# PAGE 5: LIVE AI AGRI-ASSISTANT (GEMINI)
+# PAGE 5: AI AGRI-ASSISTANT (DYNAMIC GEMINI)
 # ==========================================
 elif menu_selection == "🤖 AI Agri-Assistant":
     st.title("🤖 Smart Agri-Assistant (Live AI)")
     st.write("I am powered by a real Large Language Model. Ask me anything!")
 
-    # Securely load the API key
+    # Securely load the API key and Auto-Fetch Models
     try:
         import google.generativeai as genai
         api_key = st.secrets["GEMINI_API_KEY"].strip()
         genai.configure(api_key=api_key)
         
-        # SMART FIX: Automatically fetch active models from Google to prevent 404 errors
+        # SMART FIX: Automatically fetch active models from Google
         model_list = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         
-        # Filter for 'flash' models (the fast, free tier versions)
+        # Filter for 'flash' models and select the first available one
         flash_models = [m for m in model_list if 'flash' in m]
-        
-        # Select the first available model and strip the 'models/' prefix
         chosen_model = flash_models[0].replace('models/', '') if flash_models else 'gemini-3.5-flash'
         
         model = genai.GenerativeModel(chosen_model)
-        
     except Exception as e:
         st.error(f"🚨 Initialization Error: {e}")
         st.stop()
 
-if "messages" not in st.session_state:
+    # Initialize chat history memory
+    if "messages" not in st.session_state:
         st.session_state.messages = [
             {"role": "assistant", "content": "Hello! I am your live AI Agri-Assistant. How can I help you optimize your farm today?"}
         ]
