@@ -209,7 +209,7 @@ elif menu_selection == "🤖 AI Agri-Assistant":
         genai.configure(api_key=api_key)
         
         # Upgraded to a newer model version
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-3.8-flash')
     except Exception as e:
         st.error(f"🚨 Initialization Error: {e}")
         st.stop()
