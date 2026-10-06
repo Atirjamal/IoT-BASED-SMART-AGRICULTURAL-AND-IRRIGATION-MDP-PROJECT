@@ -205,32 +205,20 @@ elif menu_selection == "Weather Forecast":
     st.line_chart(weather_data.set_index('Date')[['Max Temp (°C)', 'Rain Prob (%)']])
 
 # ==========================================
-# PAGE 5: AI AGRI-ASSISTANT (DYNAMIC GEMINI)
+# PAGE 5: AI AGRI-ASSISTANT (GEMINI)
 # ==========================================
 elif menu_selection == "🤖 AI Agri-Assistant":
     st.title("🤖 Smart Agri-Assistant (Live AI)")
     st.write("I am powered by a real Large Language Model. Ask me anything!")
 
-    # Securely load the API key and Auto-Fetch Models
+    # Securely load the API key
     try:
         import google.generativeai as genai
         api_key = st.secrets["GEMINI_API_KEY"].strip()
         genai.configure(api_key=api_key)
         
-        # SMART FIX: Automatically fetch active models from Google
-        model_list = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        
-        # Filter for 'flash' models and select the first available one
-        flash_models = [m for m in model_list if 'flash' in m.lower()]
-        
-        # Strip the 'models/' prefix for Streamlit compatibility
-        if flash_models:
-            chosen_model = flash_models[0].replace('models/', '')
-        else:
-            # Absolute fallback if fetching fails
-            chosen_model = 'gemini-1.5-flash'
-            
-        model = genai.GenerativeModel(chosen_model)
+        # Using gemini-3.8-flash on the free tier
+        model = genai.GenerativeModel('gemini-3.8-flash')
     except Exception as e:
         st.error(f"🚨 Initialization Error: {e}")
         st.stop()
