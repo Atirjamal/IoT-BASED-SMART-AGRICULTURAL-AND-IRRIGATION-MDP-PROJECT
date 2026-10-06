@@ -221,9 +221,15 @@ elif menu_selection == "🤖 AI Agri-Assistant":
         model_list = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         
         # Filter for 'flash' models and select the first available one
-        flash_models = [m for m in model_list if 'flash' in m]
-        chosen_model = flash_models[0].replace('models/', '') if flash_models else 'gemini-3.5-flash'
+        flash_models = [m for m in model_list if 'flash' in m.lower()]
         
+        # Strip the 'models/' prefix for Streamlit compatibility
+        if flash_models:
+            chosen_model = flash_models[0].replace('models/', '')
+        else:
+            # Absolute fallback if fetching fails
+            chosen_model = 'gemini-1.5-flash'
+            
         model = genai.GenerativeModel(chosen_model)
     except Exception as e:
         st.error(f"🚨 Initialization Error: {e}")
