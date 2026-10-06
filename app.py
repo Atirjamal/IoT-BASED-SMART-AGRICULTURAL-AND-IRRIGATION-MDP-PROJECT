@@ -195,6 +195,7 @@ elif menu_selection == "Weather Forecast":
             """, unsafe_allow_html=True)
     st.line_chart(weather_data.set_index('Date')[['Max Temp (°C)', 'Rain Prob (%)']])
 
+
 # ==========================================
 # PAGE 5: LIVE AI AGRI-ASSISTANT (GEMINI)
 # ==========================================
@@ -202,23 +203,29 @@ elif menu_selection == "🤖 AI Agri-Assistant":
     st.title("🤖 Smart Agri-Assistant (Live AI)")
     st.write("I am powered by a real Large Language Model. Ask me anything!")
 
-    # Securely load the API key from Streamlit Secrets
+    # Securely load the API key
     try:
         import google.generativeai as genai
         api_key = st.secrets["GEMINI_API_KEY"].strip()
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3-flash')
+        
+        # SMART FIX: Automatically fetch active models from Google to prevent 404 errors
+        model_list = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # Filter for 'flash' models (the fast, free tier versions)
+        flash_models = [m for m in model_list if 'flash' in m]
+        
+        # Select the first available model and strip the 'models/' prefix
+        chosen_model = flash_models[0].replace('models/', '') if flash_models else 'gemini-3.5-flash'
+        
+        model = genai.GenerativeModel(chosen_model)
+        
     except Exception as e:
         st.error(f"🚨 Initialization Error: {e}")
         st.stop()
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [
-            {"role": "assistant", "content": "Hello! I am your live AI Agri-Assistant. How can I help you optimize your farm today?"}
-        ]
-
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
+            with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
     # ALL response logic MUST stay inside this indented 'if prompt' block
