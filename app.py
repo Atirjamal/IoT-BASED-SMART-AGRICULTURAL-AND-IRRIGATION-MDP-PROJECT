@@ -224,10 +224,9 @@ elif menu_selection == "🤖 AI Agri-Assistant":
         st.error(f"🚨 Initialization Error: {e}")
         st.stop()
 
-    if "messages" not in st.session_state:
-            with st.chat_message(message["role"]):
+for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
             st.markdown(message["content"])
-
     # ALL response logic MUST stay inside this indented 'if prompt' block
     if prompt := st.chat_input("Ask about crops, weather, or government schemes..."):
         st.chat_message("user").markdown(prompt)
