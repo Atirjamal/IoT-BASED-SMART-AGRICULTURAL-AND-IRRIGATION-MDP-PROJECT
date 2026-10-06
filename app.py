@@ -202,14 +202,12 @@ elif menu_selection == "🤖 AI Agri-Assistant":
     st.title("🤖 Smart Agri-Assistant (Live AI)")
     st.write("I am powered by a real Large Language Model. Ask me anything!")
 
-    # Securely load the API key from Streamlit Secrets and strip hidden spaces
+    # Securely load the API key from Streamlit Secrets
     try:
         import google.generativeai as genai
         api_key = st.secrets["GEMINI_API_KEY"].strip()
         genai.configure(api_key=api_key)
-        
-        # Upgraded to a newer model version
-        model = genai.GenerativeModel('gemini-3.8-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash')
     except Exception as e:
         st.error(f"🚨 Initialization Error: {e}")
         st.stop()
@@ -223,11 +221,11 @@ elif menu_selection == "🤖 AI Agri-Assistant":
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
+    # ALL response logic MUST stay inside this indented 'if prompt' block
     if prompt := st.chat_input("Ask about crops, weather, or government schemes..."):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # Inject real-time dashboard data into the AI's brain behind the scenes
         context_prompt = f"""
         You are an expert agricultural AI assistant helping a farmer. 
         The current farm data is: Soil Moisture = {latest_moisture}%, Temperature = {latest_temp}°C, Rain Probability = {today_rain_prob}%.
@@ -235,22 +233,16 @@ elif menu_selection == "🤖 AI Agri-Assistant":
         Answer concisely and professionally, taking the current farm data into account if relevant.
         """
 
-with st.chat_message("assistant"):
+        with st.chat_message("assistant"):
             try:
-                # Ask Gemini to stream the response back in small chunks
                 response = model.generate_content(context_prompt, stream=True)
                 
-                # Helper function to yield text chunks as they arrive
                 def stream_data():
                     for chunk in response:
                         if chunk.text:
                             yield chunk.text
                             
-                # st.write_stream automatically creates the typing animation
                 full_response = st.write_stream(stream_data())
-                
-                # Save the final text to chat memory
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
-                
             except Exception as e:
                 st.error(f"Failed to connect to AI. Exact Error: {e}")
